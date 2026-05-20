@@ -108,6 +108,60 @@ Return ONLY a JSON array, no prose, no markdown fences. Schema:
   }
 });
 
+// POST /api/angles — takes raw items the user pasted from their feed
+// (post titles, topics, or URLs, one per entry) and returns the same
+// topic-card shape as /api/scan, without running web search.
+app.post('/api/angles', async (req, res) => {
+  const { inputs } = req.body || {};
+  const items = Array.isArray(inputs)
+    ? inputs.map((s) => String(s).trim()).filter(Boolean)
+    : [];
+  if (items.length === 0) {
+    return res.status(400).json({ error: 'inputs must be a non-empty array' });
+  }
+
+  try {
+    const message = await client.messages.create({
+      model: MODEL,
+      max_tokens: 3000,
+      system: `${VOICE_PROFILE}
+
+You are the writer's research partner. The writer is going to hand you a list
+of items they've seen trending in their LinkedIn feed: post titles, topic
+phrases, or URLs. You will not search the web. Work from what they pasted.
+URLs are clues about subject matter, not sources you can fetch.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Here is what I'm seeing in my feed right now. For each item, return one topic card with 2-3 post angles tailored to my voice and frameworks. Connect to my pillars (AI adoption at the team layer, Zero-Translation Building, Network Intelligence Layer, player-coach leadership) only when the connection is honest. If an item is just a URL, infer the topic from the URL path and slug.
+
+My feed:
+${items.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+Return ONLY a JSON array, no prose, no markdown fences. Schema:
+[
+  {
+    "title": "short topic name (5-8 words)",
+    "summary": "1-2 sentences on what this item is about and why it has heat",
+    "fit": "high" | "medium" | "low",
+    "angles": ["angle 1 (one sentence, written as a hook or premise)", "angle 2", "angle 3"]
+  }
+]
+
+"fit" is how well it maps to my content pillars. Be honest — not everything should be "high."`,
+        },
+      ],
+    });
+
+    const raw = extractText(message);
+    const topics = parseJson(raw);
+    res.json({ topics });
+  } catch (err) {
+    console.error('angles error:', err);
+    res.status(500).json({ error: err.message || 'Angle generation failed' });
+  }
+});
+
 // POST /api/draft — turn a topic + angle into a finished LinkedIn post.
 app.post('/api/draft', async (req, res) => {
   const { topic, angle } = req.body || {};
@@ -152,5 +206,5 @@ Return ONLY the post text. No title. No commentary. No hashtags.`,
 app.get('/api/health', (_req, res) => res.json({ ok: true, model: MODEL }));
 
 app.listen(PORT, () => {
-  console.log(`Signal API listening on http://localhost:${PORT} (model: ${MODEL})`);
+  console.log(`Quill API listening on http://localhost:${PORT} (model: ${MODEL})`);
 });

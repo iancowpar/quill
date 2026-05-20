@@ -12,4 +12,5 @@ async function postJson(path, body) {
 }
 
 export const scanSignals = () => postJson('/api/scan', {});
+export const anglesFromInputs = (inputs) => postJson('/api/angles', { inputs });
 export const draftPost = (topic, angle) => postJson('/api/draft', { topic, angle });

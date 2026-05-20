@@ -33,10 +33,11 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div>
-          <div className="brand">Signal</div>
-          <div className="tagline">your LinkedIn writing partner</div>
+        <div className="brand-block">
+          <div className="brand">Quill</div>
+          <div className="tagline">a LinkedIn writing partner</div>
         </div>
+        <div className="nav-label">Workspace</div>
         <button
           className={`nav-item ${view === 'scan' ? 'active' : ''}`}
           onClick={() => setView('scan')}
@@ -47,7 +48,7 @@ export default function App() {
           className={`nav-item ${view === 'history' ? 'active' : ''}`}
           onClick={() => setView('history')}
         >
-          History {history.length > 0 && `(${history.length})`}
+          History {history.length > 0 && <span className="nav-count">{history.length}</span>}
         </button>
       </aside>
 

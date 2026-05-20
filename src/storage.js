@@ -1,5 +1,5 @@
 // localStorage-backed history of generated drafts.
-const KEY = 'signal.history.v1';
+const KEY = 'quill.history.v1';
 
 export function loadHistory() {
   try {

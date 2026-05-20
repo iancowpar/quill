@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { scanSignals } from '../api.js';
+import { scanSignals, anglesFromInputs } from '../api.js';
 
 function FitPill({ fit }) {
   const cls = fit === 'high' ? 'fit-high' : fit === 'medium' ? 'fit-medium' : 'fit-low';
@@ -34,16 +34,13 @@ function TopicCard({ topic, onDraft }) {
   );
 }
 
-export default function ScanScreen({ topics, setTopics, onDraft }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleScan = async () => {
+function ScanMode({ onResults, setLoading, setError, loading }) {
+  const run = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await scanSignals();
-      setTopics(data.topics || []);
+      onResults(data.topics || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -52,27 +49,125 @@ export default function ScanScreen({ topics, setTopics, onDraft }) {
   };
 
   return (
+    <div className="mode-panel">
+      <p className="mode-desc">
+        Search the web for what's actually being discussed across PM, AI adoption,
+        and product leadership in the past seven days. Each topic comes back with
+        a fit rating and angles in your voice.
+      </p>
+      <button className="btn-primary" onClick={run} disabled={loading}>
+        {loading ? <><span className="spinner" />Scanning…</> : 'Scan for signals'}
+      </button>
+      {loading && (
+        <p className="hint">
+          Searching the web and matching trends to your frameworks. 20–40 seconds.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PasteMode({ onResults, setLoading, setError, loading }) {
+  const [text, setText] = useState('');
+
+  const run = async () => {
+    const inputs = text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (inputs.length === 0) {
+      setError('Add at least one topic, title, or URL.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await anglesFromInputs(inputs);
+      onResults(data.topics || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mode-panel">
+      <p className="mode-desc">
+        Paste what you're already seeing in your feed — post titles, topics,
+        or URLs. One per line. No web search; angles are generated from what
+        you give it.
+      </p>
+      <textarea
+        className="paste-textarea"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={`The PM role is dying / changing\nhttps://www.linkedin.com/posts/...\nAI agents replacing junior engineers\nRTO mandates spiking again`}
+        rows={8}
+        disabled={loading}
+      />
+      <button className="btn-primary" onClick={run} disabled={loading}>
+        {loading ? <><span className="spinner" />Generating…</> : 'Generate angles'}
+      </button>
+      {loading && (
+        <p className="hint">
+          Reading your inputs and proposing angles. About 10–20 seconds.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function ScanScreen({ topics, setTopics, onDraft }) {
+  const [mode, setMode] = useState('scan'); // 'scan' | 'paste'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  return (
     <div>
       <h1 className="h1">What's worth saying this week</h1>
       <p className="subtle">
-        Scan finds what's actually being discussed across PM, AI adoption, and
-        product leadership, then proposes angles in your voice.
+        Two ways in. Auto-scan the web, or paste from what you're already seeing.
       </p>
 
-      <button className="btn-primary" onClick={handleScan} disabled={loading}>
-        {loading ? <><span className="spinner" />Scanning…</> : 'Scan for signals'}
-      </button>
+      <div className="tabs">
+        <button
+          className={`tab ${mode === 'scan' ? 'active' : ''}`}
+          onClick={() => { setMode('scan'); setError(null); }}
+          disabled={loading}
+        >
+          Scan for signals
+        </button>
+        <button
+          className={`tab ${mode === 'paste' ? 'active' : ''}`}
+          onClick={() => { setMode('paste'); setError(null); }}
+          disabled={loading}
+        >
+          Paste from my feed
+        </button>
+      </div>
 
-      {loading && (
-        <p className="scan-status">
-          Searching the web and matching trends to your frameworks. This takes 20–40 seconds.
-        </p>
+      {mode === 'scan' ? (
+        <ScanMode
+          onResults={setTopics}
+          setLoading={setLoading}
+          setError={setError}
+          loading={loading}
+        />
+      ) : (
+        <PasteMode
+          onResults={setTopics}
+          setLoading={setLoading}
+          setError={setError}
+          loading={loading}
+        />
       )}
 
       {error && <div className="error">{error}</div>}
 
       {topics.length > 0 && (
         <div className="topics">
+          <div className="topics-label">Topics</div>
           {topics.map((t, i) => (
             <TopicCard key={i} topic={t} onDraft={onDraft} />
           ))}
@@ -80,7 +175,7 @@ export default function ScanScreen({ topics, setTopics, onDraft }) {
       )}
 
       {!loading && topics.length === 0 && !error && (
-        <p className="empty">No scan yet. Hit the button when you're ready.</p>
+        <p className="empty">No results yet. Pick a mode above and go.</p>
       )}
     </div>
   );
