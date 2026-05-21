@@ -21,20 +21,30 @@ prompt (`voice.js`). The UI never asks who is writing or shows that profile.
   scan mode only
 - Draft history in `localStorage` (key `quill.history.v1`, capped at 50)
 
-## Setup
+## Setup (one-time)
 
 ```bash
 cd ~/"Cowork HQ"/signal
 cp .env.example .env
 # edit .env and set ANTHROPIC_API_KEY
 npm install
+```
+
+## Run
+
+**Fast path — double-click:** `~/Desktop/Quill.command` (a symlink to
+`start-quill.command` in the project). It boots both servers and opens
+<http://localhost:5173> in your browser. Press `Ctrl+C` in the Terminal
+window to stop.
+
+**Manual:**
+
+```bash
 npm run dev
 ```
 
-`npm run dev` runs Vite and the API together via `concurrently`. Open
-<http://localhost:5173>.
-
-To run them separately:
+Both ways run Vite and the API together via `concurrently`. To run them
+separately:
 
 ```bash
 node server.js   # API on :3001
