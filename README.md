@@ -24,6 +24,7 @@ prompt (`voice.js`). The UI never asks who is writing or shows that profile.
 ## Setup
 
 ```bash
+cd ~/"Cowork HQ"/signal
 cp .env.example .env
 # edit .env and set ANTHROPIC_API_KEY
 npm install
