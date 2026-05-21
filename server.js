@@ -84,13 +84,18 @@ over noise — patterns, real shifts, things being debated, not press releases.`
 
 Find 5-7 topics with real momentum this week. For each, generate 2-3 post angles tailored to my voice and frameworks. Angles should NOT be generic takes. They should connect the trend to one of my pillars (AI adoption at the team layer, Zero-Translation Building, Network Intelligence Layer, player-coach leadership) when the connection is honest.
 
+Angles MUST be framed as a premise, observation, reframe, or question — never as a first-person scene or claim about something that happened to me. Do not propose angles like "When my team rolled out X…" or "Last week I noticed…". I won't publish things that didn't happen. Examples of well-framed angles:
+- "Why AI rollouts stall at the team layer, not the tool layer."
+- "The PM's new job is to identify what people are waiting on."
+- "What if the bottleneck isn't capacity, it's translation?"
+
 Return ONLY a JSON array, no prose, no markdown fences. Schema:
 [
   {
     "title": "short topic name",
     "summary": "1-2 sentences on what is happening and why it has momentum",
     "fit": "high" | "medium" | "low",
-    "angles": ["angle 1 (one sentence, written as a hook or premise — not a full post)", "angle 2", "angle 3"]
+    "angles": ["angle 1 (premise/observation/question, not a first-person scene)", "angle 2", "angle 3"]
   }
 ]
 
@@ -135,6 +140,8 @@ URLs are clues about subject matter, not sources you can fetch.`,
           role: 'user',
           content: `Here is what I'm seeing in my feed right now. For each item, return one topic card with 2-3 post angles tailored to my voice and frameworks. Connect to my pillars (AI adoption at the team layer, Zero-Translation Building, Network Intelligence Layer, player-coach leadership) only when the connection is honest. If an item is just a URL, infer the topic from the URL path and slug.
 
+Angles MUST be framed as a premise, observation, reframe, or question — never as a first-person scene or claim about something that happened to me. Do not propose angles like "When my team rolled out X…" or "Last week I noticed…". I won't publish things that didn't happen.
+
 My feed:
 ${items.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
@@ -144,7 +151,7 @@ Return ONLY a JSON array, no prose, no markdown fences. Schema:
     "title": "short topic name (5-8 words)",
     "summary": "1-2 sentences on what this item is about and why it has heat",
     "fit": "high" | "medium" | "low",
-    "angles": ["angle 1 (one sentence, written as a hook or premise)", "angle 2", "angle 3"]
+    "angles": ["angle 1 (premise/observation/question, not a first-person scene)", "angle 2", "angle 3"]
   }
 ]
 
@@ -163,11 +170,31 @@ Return ONLY a JSON array, no prose, no markdown fences. Schema:
 });
 
 // POST /api/draft — turn a topic + angle into a finished LinkedIn post.
+// Optional `anchor`: a real moment from the writer to ground the opener.
+// When omitted, the model is explicitly forbidden from inventing one.
 app.post('/api/draft', async (req, res) => {
-  const { topic, angle } = req.body || {};
+  const { topic, angle, anchor } = req.body || {};
   if (!topic || !angle) {
     return res.status(400).json({ error: 'topic and angle are required' });
   }
+
+  const anchorText = typeof anchor === 'string' ? anchor.trim() : '';
+  const openingInstruction = anchorText
+    ? `OPENER: I have given you an ANCHOR below. Open the post directly from it.
+Use it as ground truth. Do not embellish it with invented surrounding details
+(no fabricated names, dialogue, room descriptions, or extra events I didn't
+include). Take what I gave you, and move from there into the systemic point.
+
+ANCHOR (in my own words, treat as fact):
+"""
+${anchorText}
+"""`
+    : `OPENER: I did NOT give you an anchor. You must NOT invent a first-person
+scene, meeting, conversation, customer, or teammate. No "Last week I…",
+no "I was talking to a PM…", no "A founder told me…". Open instead with
+one of: (a) a pattern visible in the public discourse, (b) a direct
+observation about how things work, (c) a question worth sitting with, or
+(d) a reframe of a common assumption. Observation, not autobiography.`;
 
   try {
     const message = await client.messages.create({
@@ -182,13 +209,14 @@ app.post('/api/draft', async (req, res) => {
 Trend: ${topic}
 Angle: ${angle}
 
+${openingInstruction}
+
 Constraints:
 - 150-250 words. Count them.
-- Open with a real moment or concrete observation, not a thesis.
 - Zoom from specific → systemic → human stakes.
 - 1-2 line paragraphs with white space between them.
 - End with a question or a small challenge.
-- Follow every hard rule in the system prompt.
+- Follow every hard rule in the system prompt, especially the AUTHENTICITY rule.
 
 Return ONLY the post text. No title. No commentary. No hashtags.`,
         },

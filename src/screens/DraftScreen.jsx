@@ -7,6 +7,7 @@ function wordCount(text) {
 }
 
 export default function DraftScreen({ session, onBack, onSaved, onToast }) {
+  const [anchor, setAnchor] = useState(session?.anchor || '');
   const [draft, setDraft] = useState(session?.draft || '');
   const [loading, setLoading] = useState(!session?.draft);
   const [error, setError] = useState(null);
@@ -16,10 +17,14 @@ export default function DraftScreen({ session, onBack, onSaved, onToast }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await draftPost(session.topic, session.angle);
+      const data = await draftPost(session.topic, session.angle, anchor);
       setDraft(data.draft);
       if (entryId) {
-        updateDraft(entryId, { draft: data.draft, updatedAt: Date.now() });
+        updateDraft(entryId, {
+          draft: data.draft,
+          anchor,
+          updatedAt: Date.now(),
+        });
         onSaved();
       } else {
         const id = `d_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -27,6 +32,7 @@ export default function DraftScreen({ session, onBack, onSaved, onToast }) {
           id,
           topic: session.topic,
           angle: session.angle,
+          anchor,
           draft: data.draft,
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -42,6 +48,9 @@ export default function DraftScreen({ session, onBack, onSaved, onToast }) {
   };
 
   // Generate on mount when opened from a fresh angle (no draft yet).
+  // The new system prompt forbids invented scenes, so an anchor-less first
+  // draft opens with observation — safe to auto-run. User can then add an
+  // anchor and regenerate for a personally grounded version.
   useEffect(() => {
     if (!session?.draft && session?.topic && session?.angle) {
       generate();
@@ -49,10 +58,15 @@ export default function DraftScreen({ session, onBack, onSaved, onToast }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist user edits to localStorage on blur — quiet save, no toast.
-  const handleBlur = () => {
+  const handleDraftBlur = () => {
     if (!entryId || !draft) return;
-    updateDraft(entryId, { draft, updatedAt: Date.now() });
+    updateDraft(entryId, { draft, anchor, updatedAt: Date.now() });
+    onSaved();
+  };
+
+  const handleAnchorBlur = () => {
+    if (!entryId) return;
+    updateDraft(entryId, { anchor, updatedAt: Date.now() });
     onSaved();
   };
 
@@ -73,13 +87,39 @@ export default function DraftScreen({ session, onBack, onSaved, onToast }) {
 
       <div className="draft-angle">{session.angle}</div>
 
+      <div className="anchor-block">
+        <div className="anchor-head">
+          <label className="anchor-label" htmlFor="anchor-input">Anchor</label>
+          <span className="anchor-optional">optional, but recommended</span>
+        </div>
+        <p className="anchor-help">
+          A real moment, observation, or detail in your own words. A Slack
+          message you saw. A pattern you noticed. The post will open from this.
+          Leave blank and the post opens with observation instead — never an
+          invented scene.
+        </p>
+        <textarea
+          id="anchor-input"
+          className="anchor-textarea"
+          value={anchor}
+          onChange={(e) => setAnchor(e.target.value)}
+          onBlur={handleAnchorBlur}
+          placeholder="Something that actually happened or that you actually noticed. Two sentences is enough."
+          rows={3}
+          disabled={loading}
+        />
+        <p className="anchor-hint">
+          Edit the anchor, then hit <em>Regenerate</em> below.
+        </p>
+      </div>
+
       {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
 
       <textarea
         className="draft-textarea"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={handleBlur}
+        onBlur={handleDraftBlur}
         placeholder={loading ? 'Writing…' : 'Your draft will appear here.'}
         disabled={loading}
       />
